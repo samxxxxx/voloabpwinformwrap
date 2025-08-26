@@ -1,58 +1,147 @@
-﻿# wrap_test
+﻿# Volo ABP HttpClient Api 自定义包装测试
 
-## About this solution
+## 问题点
 
-This is a layered startup solution based on [Domain Driven Design (DDD)](https://abp.io/docs/latest/framework/architecture/domain-driven-design) practises. All the fundamental ABP modules are already installed. Check the [Application Startup Template](https://abp.io/docs/latest/solution-templates/layered-web-application) documentation for more info.
+在 `wrap_test.Web` 项目的 `wrap_testWebModule`模块，注册使用自定义结果包装 `context.Services.RegisterWrapResult(true);`服务，在 Winform 下调用 `wrap_test.Application.Contracts` `IBookAppService`服务接口，产生如下异常：
 
-### Pre-requirements
+```
+2025-08-25 13:53:36 [Error] 系统异常
+System.NullReferenceException: Object reference not set to an instance of an object.
+   at Volo.Abp.Http.Client.DynamicProxying.ApiDescriptionFinder.FindActionAsync(HttpClient client, String baseUrl, Type serviceType, MethodInfo method)
+   at Volo.Abp.Http.Client.DynamicProxying.DynamicHttpProxyInterceptor`1.GetActionApiDescriptionModel(IAbpMethodInvocation invocation)
+   at Volo.Abp.Http.Client.DynamicProxying.DynamicHttpProxyInterceptor`1.InterceptAsync(IAbpMethodInvocation invocation)
+   at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+   at Castle.DynamicProxy.AsyncInterceptorBase.ProceedAsynchronous[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo)
+   at Volo.Abp.Castle.DynamicProxy.CastleAbpMethodInvocationAdapterWithReturnValue`1.ProceedAsync()
+   at Volo.Abp.Validation.ValidationInterceptor.InterceptAsync(IAbpMethodInvocation invocation)
+   at Volo.Abp.Castle.DynamicProxy.CastleAsyncAbpInterceptorAdapter`1.InterceptAsync[TResult](IInvocation invocation, IInvocationProceedInfo proceedInfo, Func`3 proceed)
+   at WebsiteView.<>c__DisplayClass11_0.<<BindData>b__0>d.MoveNext() in WebsiteView.cs:line 70
+--- End of stack trace frog ExecuteAsync(Func`1 asyncAction, String caption, String description) in WaitDialogForm.cs:line 166
+   at BindData() in WebsiteView.cs:line 61
+   at WebsiteView_Load(Object sender, EventArgs e) in WebsiteView.cs:line 82
+   at System.Threading.Tasks.Task.<>c.<ThrowAsync>b__128_0(Object state)
+   at System.Windows.Forms.Control.InvokeMarshaledCallbackDo(ThreadMethodEntry tme)
+   at System.Windows.Forms.Control.InvokeMarshaledCallbackHelper(Object obj)
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+--- End of stack trace from previous location ---
+   at System.Threading.ExecutionContext.RunInternal(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Threading.ExecutionContext.Run(ExecutionContext executionContext, ContextCallback callback, Object state)
+   at System.Windows.Forms.Control.InvokeMarshaledCallback(ThreadMethodEntry tme)
+   at System.Windows.Forms.Control.InvokeMarshaledCallbacks()
 
-* [.NET9.0+ SDK](https://dotnet.microsoft.com/download/dotnet)
-* [Node v18 or 20](https://nodejs.org/en)
-
-### Configurations
-
-The solution comes with a default configuration that works out of the box. However, you may consider to change the following configuration before running your solution:
-
-* Check the `ConnectionStrings` in `appsettings.json` files under the `wrap_test.Web` and `wrap_test.DbMigrator` projects and change it if you need.
-
-### Before running the application
-
-* Run `abp install-libs` command on your solution folder to install client-side package dependencies. This step is automatically done when you create a new solution, if you didn't especially disabled it. However, you should run it yourself if you have first cloned this solution from your source control, or added a new client-side package dependency to your solution.
-* Run `wrap_test.DbMigrator` to create the initial database. This step is also automatically done when you create a new solution, if you didn't especially disabled it. This should be done in the first run. It is also needed if a new database migration is added to the solution later.
-
-#### Generating a Signing Certificate
-
-In the production environment, you need to use a production signing certificate. ABP Framework sets up signing and encryption certificates in your application and expects an `openiddict.pfx` file in your application.
-
-To generate a signing certificate, you can use the following command:
-
-```bash
-dotnet dev-certs https -v -ep openiddict.pfx -p b1a0bd89-63d8-4715-a0ba-2d80911090e0
 ```
 
-> `b1a0bd89-63d8-4715-a0ba-2d80911090e0` is the password of the certificate, you can change it to any password you want.
+*swagger中调试结果是正常的*
 
-It is recommended to use **two** RSA certificates, distinct from the certificate(s) used for HTTPS: one for encryption, one for signing.
+## 问题重现
 
-For more information, please refer to: [OpenIddict Certificate Configuration](https://documentation.openiddict.com/configuration/encryption-and-signing-credentials.html#registering-a-certificate-recommended-for-production-ready-scenarios)
+1. 将 `wrap_test.HttpApi.Client` 项目中 `wrap_testHttpApiClientModule` 模块 `ConfigureServices` 方法中的代码
 
-> Also, see the [Configuring OpenIddict](https://abp.io/docs/latest/Deployment/Configuring-OpenIddict#production-environment) documentation for more information.
+```c#
+context.Services.AddWrapHttpClientProxies(
+    typeof(wrap_testApplicationContractsModule).Assembly,
+    RemoteServiceName
+);
+```
+替换成
 
-### Solution structure
+```c#
+context.Services.AddHttpClientProxies(
+    typeof(wrap_testApplicationContractsModule).Assembly,
+    RemoteServiceName
+);
+```
 
-This is a layered monolith application that consists of the following applications:
+2. 排除掉重写的 `wrap_test.DynamicProxying.WrapApiDescriptionFinder` 文件
 
-* `wrap_test.DbMigrator`: A console application which applies the migrations and also seeds the initial data. It is useful on development as well as on production environment.
-* `wrap_test.Web`: ASP.NET Core MVC / Razor Pages application that is the essential web application of the solution.
+3. 调用 Form1 中的 Call1 2 3 都会产生 `System.NullReferenceException:“Object reference not set to an instance of an object.”` 异常
 
 
-## Deploying the application
+## 分析
 
-Deploying an ABP application follows the same process as deploying any .NET or ASP.NET Core application. However, there are important considerations to keep in mind. For detailed guidance, refer to ABP's [deployment documentation](https://abp.io/docs/latest/Deployment/Index).
+自定义包装结构：
 
-### Additional resources
+```json
+{
+  "data": T,
+  "success": true
+}
+```
 
-You can see the following resources to learn more about your solution and the ABP Framework:
+1. 使用自定义包装后，会将 `api/abp/api-definition` 返回的结果进行包装，`ApiDescriptionFinder.GetApiDescriptionFromServerAsync` -该方法在对请求的结果反序列化时，找不到任何的 action (*因为结构已经改变*) 而导致`NullReferenceException`.
 
-* [Web Application Development Tutorial](https://abp.io/docs/latest/tutorials/book-store/part-1)
-* [Application Startup Template](https://abp.io/docs/latest/startup-templates/application/index)
+源码：
+
+```c#
+protected virtual async Task<ApplicationApiDescriptionModel> GetApiDescriptionFromServerAsync(
+    HttpClient client,
+    string baseUrl)
+{
+    var requestMessage = new HttpRequestMessage(
+        HttpMethod.Get,
+        baseUrl.EnsureEndsWith('/') + "api/abp/api-definition"
+    );
+
+    AddHeaders(requestMessage);
+
+    var response = await client.SendAsync(
+        requestMessage,
+        CancellationTokenProvider.Token
+    );
+
+    if (!response.IsSuccessStatusCode)
+    {
+        throw new AbpException("Remote service returns error! StatusCode = " + response.StatusCode);
+    }
+
+    var content = await response.Content.ReadAsStringAsync();
+
+    var result = JsonSerializer.Deserialize<ApplicationApiDescriptionModel>(content, DeserializeOptions)!;
+
+    return result;
+}
+```
+
+2. 在 `DynamicHttpProxyInterceptorClientProxy.RequestAsync<T>(ClientProxyRequestContext requestContext)` 对结果反序列化时，同样也会存在问题.
+
+源码：
+
+```c#
+protected virtual async Task<T> RequestAsync<T>(ClientProxyRequestContext requestContext)
+{
+    var responseContent = await RequestAsync(requestContext);
+
+    if (typeof(T) == typeof(IRemoteStreamContent) ||
+        typeof(T) == typeof(RemoteStreamContent))
+    {
+        /* returning a class that holds a reference to response
+         * content just to be sure that GC does not dispose of
+         * it before we finish doing our work with the stream */
+        return (T)(object)new RemoteStreamContent(
+            await responseContent.ReadAsStreamAsync(),
+            responseContent.Headers?.ContentDisposition?.FileNameStar ??
+            RemoveQuotes(responseContent.Headers?.ContentDisposition?.FileName).ToString(),
+            responseContent.Headers?.ContentType?.ToString(),
+            responseContent.Headers?.ContentLength);
+    }
+
+    var stringContent = await responseContent.ReadAsStringAsync();
+    if (typeof(T) == typeof(string))
+    {
+        return (T)(object)stringContent;
+    }
+
+    if (stringContent.IsNullOrWhiteSpace())
+    {
+        return default!;
+    }
+
+    return JsonSerializer.Deserialize<T>(stringContent);
+}
+```
+
+
+***希望 @abpframework 能兼容一下 client api 的自定义包装.***
+
+*之前也有过类似的问题 [https://github.com/abpframework/abp/issues/15220](https://github.com/abpframework/abp/issues/15220)*
+

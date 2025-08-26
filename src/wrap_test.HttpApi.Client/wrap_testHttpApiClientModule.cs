@@ -29,6 +29,11 @@ public class wrap_testHttpApiClientModule : AbpModule
 
         context.Services.AddTransient(typeof(WrapDynamicHttpProxyInterceptorClientProxy<>));
 
+        //context.Services.AddHttpClientProxies(
+        //    typeof(wrap_testApplicationContractsModule).Assembly,
+        //    RemoteServiceName
+        //);
+
         context.Services.AddWrapHttpClientProxies(
             typeof(wrap_testApplicationContractsModule).Assembly,
             RemoteServiceName
