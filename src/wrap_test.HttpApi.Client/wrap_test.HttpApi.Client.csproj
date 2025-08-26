@@ -31,4 +31,8 @@
     <Content Remove="**\*generate-proxy.json" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="DynamicProxying\WrapApiDescriptionFinder.cs" />
+  </ItemGroup>
+
 </Project>
